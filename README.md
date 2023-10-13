@@ -29,8 +29,3 @@ If you find DynGWN useful in your research, please consider citing the following
     series = {ICAIF '23}
 }
 ```
-
-
-
-
-
