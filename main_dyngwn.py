@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument('--blocks', type=int, default=4,help='')
     parser.add_argument('--layers', type=int, default=2,help='')
     parser.add_argument('--in_dim', type=int, default=2, help='inputs dimension')
-    parser.add_argument('--num_nodes', type=int, default=207, help='number of nodes')
+    parser.add_argument('--num_nodes', type=int, default=80, help='number of nodes')
     parser.add_argument('--batch_size', type=int, default=8, help='batch size')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate')
     parser.add_argument('--epochs', type=int, default=500, help='')
