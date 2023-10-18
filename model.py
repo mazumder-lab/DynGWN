@@ -143,7 +143,7 @@ class dynamic_gcn(nn.Module):
     
 
 class dyngwn(nn.Module):
-    def __init__(self, num_nodes, dropout=0.3, supports=None, gcn_bool=True, addaptadj=True, aptinit=None, dynamic_gcn_bool=False, dynamic_supports_len=1, in_dim=2, input_sequence_dim=12, out_dim=12, residual_channels=32, dilation_channels=32, skip_channels=256, end_channels=512, kernel_size=2, blocks=4, layers=2, graph_method='correlation', transformation='absolute', apply_first_order_approx=False):
+    def __init__(self, num_nodes, dropout=0.3, supports=None, gcn_bool=True, addaptadj=True, aptinit=None, dynamic_gcn_bool=False, dynamic_supports_len=1, in_dim=2, input_sequence_dim=12, out_dim=12, residual_channels=32, dilation_channels=32, skip_channels=256, end_channels=512, kernel_size=2, blocks=4, layers=2, graph_method='partial-correlation', transformation='absolute', apply_first_order_approx=False):
         super(dyngwn, self).__init__()
         self.dropout = dropout
         self.blocks = blocks
@@ -316,53 +316,21 @@ class dyngwn(nn.Module):
             graph_window,
             n_nodes
         )
-        if self.graph_method=='correlation':
-            dynamic_corr = np.array([np.corrcoef(arr.T) for arr in x_r])  
-            dynamic_corr = np.nan_to_num(dynamic_corr, nan=0.0)
-            dynamic_corr[:,np.arange(n_nodes),np.arange(n_nodes)] = 1
-            dynamic_graph = dynamic_corr
-        elif self.graph_method=='shrunk-correlation':
-            dynamic_corr = np.array([np.corrcoef(arr.T) for arr in x_r])  
-            dynamic_corr = np.nan_to_num(dynamic_corr, nan=0.0)
-            dynamic_corr[:,np.arange(n_nodes),np.arange(n_nodes)] = 1
-            dynamic_shrunk_corr = np.array([shrunk_covariance(corr, shrinkage=0.1) for corr in dynamic_corr])
-            dynamic_graph = dynamic_shrunk_corr
-        elif self.graph_method=='ledoitwolf-correlation':
-            x_r_transformed = np.array([preprocessing.StandardScaler(with_mean=True, with_std=True).fit_transform(arr) for arr in x_r])          
-            dynamic_lf_corr = np.array([ledoit_wolf(arr)[0] for arr in x_r_transformed])  
-    #         dynamic_lf_corr = np.nan_to_num(dynamic_lf_corr, nan=0.0)
-            dynamic_lf_corr[:,np.arange(n_nodes),np.arange(n_nodes)] = 1
-            dynamic_graph = dynamic_lf_corr
-        elif self.graph_method=='precision':
-            x_r_transformed = np.array([preprocessing.StandardScaler(with_mean=True, with_std=True).fit_transform(arr) for arr in x_r])          
-            dynamic_lf_corr = np.array([ledoit_wolf(arr)[0] for arr in x_r_transformed])  
-    #         dynamic_lf_corr = np.nan_to_num(dynamic_lf_corr, nan=0.0)
-            dynamic_lf_corr[:,np.arange(n_nodes),np.arange(n_nodes)] = 1
-            dynamic_prec = np.array([np.linalg.inv(corr) for corr in tqdm(dynamic_lf_corr)]) # precision matrices
-            dynamic_graph = dynamic_prec
-        elif self.graph_method=='partial-correlation':
+        if self.graph_method=='partial-correlation':
             x_r_transformed = np.array([preprocessing.StandardScaler(with_mean=True, with_std=True).fit_transform(arr) for arr in x_r])          
             dynamic_lf_corr = np.array([ledoit_wolf(arr)[0] for arr in x_r_transformed])  
     #         dynamic_lf_corr = np.nan_to_num(dynamic_lf_corr, nan=0.0)
             dynamic_lf_corr[:,np.arange(n_nodes),np.arange(n_nodes)] = 1
             dynamic_prec = np.array([np.linalg.inv(corr) for corr in dynamic_lf_corr]) # precision matrices
             dynamic_partial_corr = np.array([compute_partial_correlation(prec) for prec in dynamic_prec]) # partial correlation matrices
-            dynamic_graph = dynamic_partial_corr        
-        elif self.graph_method=='cosine-similarity':
-            x_r_transformed = np.array([preprocessing.StandardScaler(with_mean=False, with_std=True).fit_transform(arr) for arr in x_r])          
-            dynamic_lf_cosine = np.array([cosine_similarity(arr.T) for arr in x_r_transformed])
-            dynamic_lf_cosine = np.nan_to_num(dynamic_lf_cosine, nan=0.0)
-            dynamic_lf_cosine[:,np.arange(n_nodes),np.arange(n_nodes)] = 1
-            dynamic_graph = dynamic_lf_cosine
+            dynamic_graph = dynamic_partial_corr 
+        else:
+            raise ValueError("Graph Method: {} is not supported".format(self.graph_method))
 
         # diagonal of corr has to be 1. no variation in column gives NaN. Set it it 0 for adjacency use.
         dynamic_graph[:,np.arange(n_nodes),np.arange(n_nodes)] = 0   
         if self.transformation=='absolute':
             dynamic_graph = np.array([np.abs(gr) for gr in dynamic_graph])
-        elif self.transformation=='relu':
-            dynamic_graph = np.array([np.maximum(gr, 0) for gr in dynamic_graph])
-#                 elif transformation=='relu-softmax':
-#                     dynamic_graph = np.array([softmax(np.maximum(gr, 0), axis=1) for gr in tqdm(dynamic_graph)])
         else:
             raise ValueError("Transformation: {} is not supported".format(transformation))
 
